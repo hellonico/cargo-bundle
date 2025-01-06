@@ -6,6 +6,7 @@ use cargo_metadata::{Metadata, MetadataCommand};
 use serde_json::Value;
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::env;
 use std::ffi::OsString;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
@@ -268,11 +269,18 @@ impl Settings {
     fn find_bundle_package(
         metadata: Metadata,
     ) -> crate::Result<(BundleSettings, cargo_metadata::Package)> {
+        let package_id_override = env::var("PACKAGE_ID").unwrap_or("".to_string());
+        // let cwd = std::env::current_dir().unwrap_or(".".into()).to_str().unwrap().to_string();
+        println!("Using package ID: {}", package_id_override);
+
         for package_id in metadata.workspace_members.iter() {
             let package = &metadata[package_id];
+            println!("{}", package.name);
             if let Some(bundle) = package.metadata.get("bundle") {
                 let settings = serde_json::from_value::<BundleSettings>(bundle.clone())?;
-                return Ok((settings, package.clone()));
+                if package_id_override.eq_ignore_ascii_case(package.name.to_string().as_str()) {
+                    return Ok((settings, package.clone()));
+                }
             }
         }
         print_warning("No package in workspace has [package.metadata.bundle] section")?;
